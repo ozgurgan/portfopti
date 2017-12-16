@@ -11,6 +11,8 @@ config = configparser.ConfigParser()
 def get_cfg(string):
     config.read('config.ini')
     return config['DATABASE'][string]
+
+
 def with_connection(f):
     def with_connection_(*args, **kwargs):
         connect_str = "dbname='" + get_cfg('dbname') + "' user='" + get_cfg('user') + "' host='" + get_cfg(
@@ -28,12 +30,16 @@ def with_connection(f):
             cnn.close()
         return rv
     return with_connection_
+
+
 @with_connection
 def send_to_db(cnn, SQL, arg1, arg2=None):
     cur = cnn.cursor()
     data = (arg1, arg2)
     cur.execute(SQL, data)  # Note: no % operator
     return cur
+
+
 # def db_connection():
 #     try:
 #         connect_str = "dbname='" + get_cfg('dbname') + "' user='" + get_cfg('user') + "' host='" + get_cfg('host') + "' " + \
@@ -57,6 +63,7 @@ def sql_init():
     else:
         print("Table already exists in DB, moving on.")
 
+
 def initial_cfg():
     #config file
     if (os.path.isfile('./config.ini') is not True):
@@ -78,6 +85,7 @@ def initial_cfg():
 
     sql_init()
 
+
 # ticker and data populator
 def ticker():
     for key in config['CURRENCIES']:
@@ -91,7 +99,7 @@ def ticker():
         time.sleep(2)
     return 0
 
-#MAIN
+# MAIN
 
 initial_cfg()
 ticker()
