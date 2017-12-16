@@ -1,0 +1,84 @@
+import configparser
+import psycopg2
+import requests
+import retrying
+import sys
+
+config = configparser.ConfigParser()
+DEFAULT_CONFIGURATION = """[GENERAL]
+tickerurl = https://api.bitfinex.com/v1/pubticker/{fromcurrency}{tocurrency}
+riskquotient = 0.1
+
+[CURRENCYPAIRS]
+btc = usd, eth, eur
+eth = btc, usd
+ltc = usd
+iot = usd
+
+[DATABASE]
+dbname = temp
+user = pricegetter1
+host = localhost
+password = MYPASSWORD"""
+TABLE_CHECK_SQL = """SELECT EXISTS(SELECT 1 FROM information_schema.tables
+WHERE table_catalog='temp'
+AND table_schema='public'
+AND table_name='ticker');"""
+
+TABLE_CREATE_SQL = """CREATE TABLE ticker (id BIGSERIAL PRIMARY KEY,
+fromcurrency VARCHAR(5),
+tocurrency VARCHAR(5),
+mid NUMERIC,
+bid NUMERIC,
+ask NUMERIC,
+last_price NUMERIC,
+low NUMERIC,
+high NUMERIC,
+volume NUMERIC,
+timestamp NUMERIC);"""
+TABLE_INSERT_SQL = """INSERT INTO ticker (fromcurrency, tocurrency, mid, bid, ask, last_price, low, high, volume, timestamp)
+VALUES (%(fromcurrency)s, %(tocurrency)s, %(mid)s, %(bid)s, %(ask)s, %(last_price)s, %(low)s, %(high)s, %(volume)s, %(timestamp)s);"""
+
+
+@retrying.retry(wait_exponential_multiplier=1000, wait_exponential_max=120000)
+def get_currency_pair_info(fromcurrency, tocurrency):
+    URL = config["GENERAL"]["TICKERURL"].format(fromcurrency=fromcurrency, tocurrency=tocurrency)
+    # print(URL)
+    api_response = dict(requests.get(URL).json())
+    # print(api_response)
+    if "message" in api_response:
+        print("Possible error, API call returned:", api_response)
+        print("\tfor URL:", URL)
+        return None
+    else:
+        return api_response
+
+
+try:
+    with open("pricegetter1.ini", "r") as configfile:
+        config.read_file(configfile)
+except FileNotFoundError:  # EAFP
+    with open("pricegetter1.ini", "w") as configfile:
+        configfile.write(DEFAULT_CONFIGURATION)
+    config.read_string(DEFAULT_CONFIGURATION)
+
+try:
+    conn = psycopg2.connect(**config["DATABASE"])
+except psycopg2.OperationalError:
+    print(f"""Unable to connect to the database with connection parameters: {dict(config["DATABASE"])}""")
+    sys.exit(1)
+
+with conn:
+    with conn.cursor() as cursor1:
+        cursor1.execute(TABLE_CHECK_SQL)
+        table_present = cursor1.fetchone()[0]
+        if not table_present:
+            cursor1.execute(TABLE_CREATE_SQL)
+
+with conn, conn.cursor() as cursor1:
+    for fromcurrency, tocurrencies in config["CURRENCYPAIRS"].items():
+        for tocurrency in tocurrencies.split(", "):
+            api_response = get_currency_pair_info(fromcurrency, tocurrency)
+            if api_response:
+                api_response.update(fromcurrency=fromcurrency, tocurrency=tocurrency)
+                cursor1.execute(TABLE_INSERT_SQL, dict(api_response))
