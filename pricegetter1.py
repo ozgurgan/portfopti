@@ -24,7 +24,6 @@ TABLE_CHECK_SQL = """SELECT EXISTS(SELECT 1 FROM information_schema.tables
 WHERE table_catalog='temp'
 AND table_schema='public'
 AND table_name='ticker');"""
-
 TABLE_CREATE_SQL = """CREATE TABLE ticker (id BIGSERIAL PRIMARY KEY,
 fromcurrency VARCHAR(5),
 tocurrency VARCHAR(5),
@@ -42,6 +41,12 @@ VALUES (%(fromcurrency)s, %(tocurrency)s, %(mid)s, %(bid)s, %(ask)s, %(last_pric
 
 @retrying.retry(wait_exponential_multiplier=1000, wait_exponential_max=120000)
 def get_currency_pair_info(fromcurrency, tocurrency):
+    """
+    Fetches the information about a currency pair ("symbol" in BitFinex parlance). Retries and backs off exponentially.
+    :param fromcurrency: Currency to be converted from
+    :param tocurrency: Currency to be converted to
+    :return: The dictionary about the currency pair, None if the call fails
+    """
     URL = config["GENERAL"]["TICKERURL"].format(fromcurrency=fromcurrency, tocurrency=tocurrency)
     # print(URL)
     api_response = dict(requests.get(URL).json())
@@ -54,6 +59,7 @@ def get_currency_pair_info(fromcurrency, tocurrency):
         return api_response
 
 
+# Read the configuration file if it exists, create it if it doesn't
 try:
     with open("pricegetter1.ini", "r") as configfile:
         config.read_file(configfile)
@@ -62,23 +68,27 @@ except FileNotFoundError:  # EAFP
         configfile.write(DEFAULT_CONFIGURATION)
     config.read_string(DEFAULT_CONFIGURATION)
 
+# Connect to database
 try:
     conn = psycopg2.connect(**config["DATABASE"])
 except psycopg2.OperationalError:
     print(f"""Unable to connect to the database with connection parameters: {dict(config["DATABASE"])}""")
     sys.exit(1)
 
-with conn:
-    with conn.cursor() as cursor1:
-        cursor1.execute(TABLE_CHECK_SQL)
-        table_present = cursor1.fetchone()[0]
-        if not table_present:
-            cursor1.execute(TABLE_CREATE_SQL)
+# Check if our table exists, create it if it doesn't
+with conn, conn.cursor() as cursor1:
+    cursor1.execute(TABLE_CHECK_SQL)
+    table_present = cursor1.fetchone()[0]
+    if not table_present:
+        cursor1.execute(TABLE_CREATE_SQL)
 
+# Read pairs from the configuration and fetch the information from the API, insert it into our table
 with conn, conn.cursor() as cursor1:
     for fromcurrency, tocurrencies in config["CURRENCYPAIRS"].items():
         for tocurrency in tocurrencies.split(", "):
+            # This is retried automatically a couple times with exponential backoff
             api_response = get_currency_pair_info(fromcurrency, tocurrency)
             if api_response:
+                # Maybe the service is down or our currency pair doesn't exist, so this cannot be guaranteed
                 api_response.update(fromcurrency=fromcurrency, tocurrency=tocurrency)
                 cursor1.execute(TABLE_INSERT_SQL, dict(api_response))
