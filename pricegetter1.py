@@ -76,14 +76,14 @@ except psycopg2.OperationalError:
     sys.exit(1)
 
 # Check if our table exists, create it if it doesn't
-with conn, conn.cursor() as cursor1:
-    cursor1.execute(TABLE_CHECK_SQL)
-    table_present = cursor1.fetchone()[0]
+with conn, conn.cursor() as cursor:
+    cursor.execute(TABLE_CHECK_SQL)
+    table_present = cursor.fetchone()[0]
     if not table_present:
-        cursor1.execute(TABLE_CREATE_SQL)
+        cursor.execute(TABLE_CREATE_SQL)
 
 # Read pairs from the configuration and fetch the information from the API, insert it into our table
-with conn, conn.cursor() as cursor1:
+with conn, conn.cursor() as cursor:
     for fromcurrency, tocurrencies in config["CURRENCYPAIRS"].items():
         for tocurrency in tocurrencies.split(", "):
             # This is retried automatically a couple times with exponential backoff
@@ -91,4 +91,4 @@ with conn, conn.cursor() as cursor1:
             if api_response:
                 # Maybe the service is down or our currency pair doesn't exist, so this cannot be guaranteed
                 api_response.update(fromcurrency=fromcurrency, tocurrency=tocurrency)
-                cursor1.execute(TABLE_INSERT_SQL, dict(api_response))
+                cursor.execute(TABLE_INSERT_SQL, dict(api_response))
