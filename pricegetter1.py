@@ -83,12 +83,12 @@ with conn, conn.cursor() as cursor:
         cursor.execute(TABLE_CREATE_SQL)
 
 # Read pairs from the configuration and fetch the information from the API, insert it into our table
-with conn, conn.cursor() as cursor:
-    for fromcurrency, tocurrencies in config["CURRENCYPAIRS"].items():
-        for tocurrency in tocurrencies.split(", "):
-            # This is retried automatically a couple times with exponential backoff
-            api_response = get_currency_pair_info(fromcurrency, tocurrency)
-            if api_response:
-                # Maybe the service is down or our currency pair doesn't exist, so this cannot be guaranteed
-                api_response.update(fromcurrency=fromcurrency, tocurrency=tocurrency)
+for fromcurrency, tocurrencies in config["CURRENCYPAIRS"].items():
+    for tocurrency in tocurrencies.split(", "):
+        # This is retried automatically a couple times with exponential backoff
+        api_response = get_currency_pair_info(fromcurrency, tocurrency)
+        # Maybe the service is down or our currency pair doesn't exist, so this cannot be guaranteed
+        if api_response:
+            api_response.update(fromcurrency=fromcurrency, tocurrency=tocurrency)
+            with conn, conn.cursor() as cursor:
                 cursor.execute(TABLE_INSERT_SQL, dict(api_response))
