@@ -62,10 +62,10 @@ def get_currency_pair_info(fromcurrency, tocurrency):
 
 # Read the configuration file if it exists, create it if it doesn't
 try:
-    with open("pricegetter1.ini", "r") as configfile:
+    with open(CONFIGURATION_FILE, "r") as configfile:
         config.read_file(configfile)
 except FileNotFoundError:  # EAFP
-    with open("pricegetter1.ini", "w") as configfile:
+    with open(CONFIGURATION_FILE, "w") as configfile:
         configfile.write(DEFAULT_CONFIGURATION)
     config.read_string(DEFAULT_CONFIGURATION)
 
