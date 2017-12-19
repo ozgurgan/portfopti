@@ -74,7 +74,7 @@ except FileNotFoundError:  # EAFP
 try:
     conn = psycopg2.connect(**config["DATABASE"])
 except psycopg2.OperationalError:
-    print(f"""Unable to connect to the database with connection parameters: {dict(config["DATABASE"])}""")
+    print("""Unable to connect to the database with connection parameters: {}""".format(dict(config["DATABASE"])))
     sys.exit(1)
 
 # Check if our table exists, create it if it doesn't
