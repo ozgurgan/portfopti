@@ -4,6 +4,8 @@ import requests
 import retrying
 import sys
 
+import time
+
 config = configparser.ConfigParser()
 DEFAULT_CONFIGURATION = """[GENERAL]
 tickerurl = https://api.bitfinex.com/v1/pubticker/{fromcurrency}{tocurrency}
@@ -87,6 +89,8 @@ for fromcurrency, tocurrencies in config["CURRENCYPAIRS"].items():
     for tocurrency in tocurrencies.split(", "):
         # This is retried automatically a couple times with exponential backoff
         api_response = get_currency_pair_info(fromcurrency, tocurrency)
+        # Avoid getting banned by slowing down
+        sleep = time.sleep(1)
         # Maybe the service is down or our currency pair doesn't exist, so this cannot be guaranteed
         if api_response:
             api_response.update(fromcurrency=fromcurrency, tocurrency=tocurrency)
