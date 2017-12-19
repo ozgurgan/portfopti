@@ -22,10 +22,7 @@ dbname = temp
 user = pricegetter1
 host = localhost
 password = MYPASSWORD"""
-TABLE_CHECK_SQL = """SELECT EXISTS(SELECT 1 FROM information_schema.tables
-WHERE table_catalog='temp'
-AND table_schema='public'
-AND table_name='ticker');"""
+TABLE_CHECK_SQL = """SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'ticker';"""
 TABLE_CREATE_SQL = """CREATE TABLE ticker (id BIGSERIAL PRIMARY KEY,
 fromcurrency VARCHAR(5),
 tocurrency VARCHAR(5),
