@@ -1,4 +1,5 @@
 import configparser
+from pathlib import Path
 import psycopg2
 import requests
 import retrying
@@ -7,6 +8,8 @@ import sys
 import time
 
 config = configparser.ConfigParser()
+
+CONFIGURATION_FILE = Path(__file__).parent / "pricegetter1.ini"
 DEFAULT_CONFIGURATION = """[GENERAL]
 tickerurl = https://api.bitfinex.com/v1/pubticker/{fromcurrency}{tocurrency}
 riskquotient = 0.1
@@ -36,7 +39,6 @@ volume NUMERIC,
 timestamp TIMESTAMP);"""
 TABLE_INSERT_SQL = """INSERT INTO ticker (fromcurrency, tocurrency, mid, bid, ask, last_price, low, high, volume, timestamp)
 VALUES (%(fromcurrency)s, %(tocurrency)s, %(mid)s, %(bid)s, %(ask)s, %(last_price)s, %(low)s, %(high)s, %(volume)s, to_timestamp(%(timestamp)s));"""
-
 
 @retrying.retry(wait_exponential_multiplier=1000, wait_exponential_max=120000)
 def get_currency_pair_info(fromcurrency, tocurrency):
