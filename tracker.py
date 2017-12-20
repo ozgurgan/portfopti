@@ -5,12 +5,16 @@ import os
 import json
 import time
 
+from persistentconnector import PersistentDatabaseConnection
+
 config = configparser.ConfigParser()
 
 
 def get_cfg(string):
     config.read('config.ini')
     return config['DATABASE'][string]
+
+
 def with_connection(f):
     def with_connection_(*args, **kwargs):
         connect_str = "dbname='" + get_cfg('dbname') + "' user='" + get_cfg('user') + "' host='" + get_cfg(
@@ -28,12 +32,16 @@ def with_connection(f):
             cnn.close()
         return rv
     return with_connection_
+
+
 @with_connection
 def send_to_db(cnn, SQL, arg1, arg2=None):
     cur = cnn.cursor()
     data = (arg1, arg2)
     cur.execute(SQL, data)  # Note: no % operator
     return cur
+
+
 # def db_connection():
 #     try:
 #         connect_str = "dbname='" + get_cfg('dbname') + "' user='" + get_cfg('user') + "' host='" + get_cfg('host') + "' " + \
@@ -44,8 +52,12 @@ def send_to_db(cnn, SQL, arg1, arg2=None):
 #         print(e)
 #         return 0
 
+def table_exists(tablename):
+    sql_statement = f"""SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_catalog='temp' AND table_schema='public' AND table_name='{tablename}');"""
+
+
 def sql_init():
-    send_to_db
+    #send_to_db
     sql = "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = %s"
     cur = send_to_db(sql, 'ticker')
     if cur.fetchone()[0] == 0:
@@ -57,9 +69,13 @@ def sql_init():
     else:
         print("Table already exists in DB, moving on.")
 
+
 def initial_cfg():
-    #config file
-    if (os.path.isfile('./config.ini') is not True):
+    """
+    Creates initial config file if it doesn't exist
+    :return: None
+    """
+    if not os.path.isfile('./config.ini'):
         print("No config.ini found, creating new one")
         config['SETTINGS'] = {'TickerUrl': 'https://api.bitfinex.com/v1/pubticker/',
                           'RiskQuotient': '0.1'}
@@ -78,8 +94,12 @@ def initial_cfg():
 
     sql_init()
 
-# ticker and data populator
+
 def ticker():
+    """
+    Ticker and data populator
+    :return: 0
+    """
     for key in config['CURRENCIES']:
         url = config['SETTINGS']['TickerUrl'] + key + "usd"
         response = requests.request("GET", url)
@@ -91,7 +111,10 @@ def ticker():
         time.sleep(2)
     return 0
 
-#MAIN
 
-initial_cfg()
-ticker()
+# MAIN
+if __name__ == '__main__':
+    initial_cfg()
+    ticker()
+
+    myconnection = PersistentDatabaseConnection(dbname="temp")
