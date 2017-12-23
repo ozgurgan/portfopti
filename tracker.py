@@ -8,5 +8,6 @@ args = parser.parse_args()
 if __name__ == '__main__':
     while True:
         api_response = dict(requests.get('https://api.bitfinex.com/v1/pubticker/' + args.arg_currency + 'usd').json())
-        print(api_response.get('mid'))
-        sleep(1)
+        #print(api_response)
+        print(api_response.get('ask'))
+        sleep(4) #We need more than a few seconds since we do the same request. Bitfinex limits are 10-90 req/m depending on site load
